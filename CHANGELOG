@@ -29,3 +29,16 @@ Full Read-Write Mode enabled
    silently emitting a malformed header.
 3. `writefile` validates paths (relative, no ".."/empty segments/NUL), which
    also closes a joinpath() escape in the Tar.create variant.
+
+## [0.3.0] - 2026-08-15
+
+More comprehensive testing
+
+### Added
+
+1. Expanded test suite
+2. README.md
+
+### Fixed
+
+1. Clean up Project.toml following Aqua fussiness
