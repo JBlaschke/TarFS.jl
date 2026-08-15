@@ -1,0 +1,31 @@
+# Change Log
+
+## [0.1.0] - 2026-08-15
+
+Add original read-only Tar File System from [related project](https://github.com/JBlaschke/CUG-Paper/blob/main/figures/scripts/analysis/src/io.jl)
+
+## [0.2.0] - 2026-08-15
+
+Full Read-Write Mode enabled
+
+### Added
+
+1. Ability to write to archive in memory (and save as a compressed tar file)
+2. Added basic round-trip test
+
+### Changed
+
+1. The tar stream goes straight into the gzip compressor — the full
+   uncompressed intermediate IOBuffer is gone.
+2. Writing out no longer materializes/caches source-backed files; they stream
+   from tarball_io via Tar.read_data.
+
+### Fixed
+
+1. `write_tarball_gz` is atomic (temp file + same-dir rename): a failure
+   mid-write can no longer truncate the target, which makes `from = path`
+   read-modify-write actually safe.
+2. Entries >= 8 GiB error out (USTAR's 11-octal-digit size field) instead of
+   silently emitting a malformed header.
+3. `writefile` validates paths (relative, no ".."/empty segments/NUL), which
+   also closes a joinpath() escape in the Tar.create variant.
