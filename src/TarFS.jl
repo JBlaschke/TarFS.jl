@@ -16,6 +16,14 @@ mutable struct InMemoryFile
     str::Union{Nothing, String}
 end
 
+"""
+    InMemoryFileSystem
+
+An in-memory filesystem backed by a `.tar.gz` archive. Construct it empty
+with `InMemoryFileSystem()` or from an archive with `InMemoryFileSystem(path)`;
+read entries with [`readfile`](@ref), stage changes with [`writefile`](@ref),
+and flush with [`write_tarball_gz`](@ref) or [`open_tarball_gz`](@ref).
+"""
 mutable struct InMemoryFileSystem
     d::Dict{String, InMemoryFile}
     tarball_io::IOBuffer
@@ -23,6 +31,15 @@ mutable struct InMemoryFileSystem
     buf::Vector{UInt8}
 end
 
+export InMemoryFileSystem
+
+"""
+    readfile(fs, path) -> String
+
+Contents of `path` as raw bytes in a `String`, decoded from the in-memory
+archive on first access and cached thereafter. Throws `KeyError` for
+unknown paths.
+"""
 function readfile(ref::InMemoryFileSystem, path::AbstractString)
     file = ref.d[path]
     file.str === nothing || return file.str
@@ -37,7 +54,13 @@ export readfile
 
 const true_predicate = _ -> true
 
-function create_inmemory_filesystem(path::AbstractString)
+"""
+    InMemoryFileSystem(path::AbstractString)
+
+Load the `.tar.gz` at `path` into memory, decompress it, and index its
+regular-file entries. Contents are materialized lazily by [`readfile`](@ref).
+"""
+function InMemoryFileSystem(path::AbstractString)::InMemoryFileSystem
     # Load and decompress archive into memory
     tarball_io = open(path) do tarball_gz
         tarball_io = IOBuffer()
@@ -65,13 +88,15 @@ function create_inmemory_filesystem(path::AbstractString)
     return system
 end
 
-"""Empty, writable filesystem with no backing tarball."""
-function create_inmemory_filesystem()
+"""
+    InMemoryFileSystem()
+
+Empty, writable filesystem with no backing tarball.
+"""
+function InMemoryFileSystem()::InMemoryFileSystem
     buf = Vector{UInt8}(undef, Tar.DEFAULT_BUFFER_SIZE)
     InMemoryFileSystem(Dict{String, InMemoryFile}(), IOBuffer(), IOBuffer(), buf)
 end
-
-export create_inmemory_filesystem
 
 # Tar member paths must be relative, '/'-separated, with no "", "." or ".."
 # segments. Also defends `joinpath(dir, p)` in write_tarball_gz_viatar:
@@ -103,6 +128,11 @@ end
 
 export writefile
 
+"""
+    deletefile(fs, path) -> Nothing
+
+Remove `path` from the filesystem; a no-op if absent.
+"""
 deletefile(fs::InMemoryFileSystem, path::AbstractString) =
     (delete!(fs.d, path); nothing)
 
@@ -227,8 +257,8 @@ The flush happens only if `f` returns normally.
 """
 function open_tarball_gz(f, path::AbstractString;
                          from::Union{Nothing, AbstractString} = nothing)
-    fs = from === nothing ? create_inmemory_filesystem() :
-                            create_inmemory_filesystem(from)
+    fs = from === nothing ? InMemoryFileSystem() :
+                            InMemoryFileSystem(from)
     f(fs)
     write_tarball_gz(fs, path)
     return fs
@@ -241,6 +271,14 @@ export open_tarball_gz
 # Costs disk I/O, but handles arbitrary path lengths (PAX/GNU long names)
 # and emits explicit directory entries — relevant if the archive is later
 # consumed by `tar -x`, docker, etc.
+
+"""
+    write_tarball_gz_viatar(fs, path)
+
+Flush to `path` via a temporary directory and `Tar.create`: slower than
+[`write_tarball_gz`](@ref), but supports arbitrarily long member paths and
+emits explicit directory entries. Same atomic temp-file + rename discipline.
+"""
 function write_tarball_gz_viatar(fs::InMemoryFileSystem, path::AbstractString)
     mktempdir() do dir
         for p in keys(fs.d)

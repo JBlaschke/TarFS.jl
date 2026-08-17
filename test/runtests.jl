@@ -58,7 +58,7 @@ end
 @testset "read path against a Tar.create-produced archive" begin
     mktempdir() do tmp
         ref = make_reference_targz(TREE, joinpath(tmp, "ref.tar.gz"))
-        fs = TarFS.create_inmemory_filesystem(ref)
+        fs = TarFS.InMemoryFileSystem(ref)
         @test Set(keys(fs.d)) == Set(keys(TREE))          # dirs not indexed, files all there
         @test all(f -> f.str === nothing, values(fs.d))   # nothing materialized yet
         s1 = TarFS.readfile(fs, "a.txt")
@@ -73,7 +73,7 @@ end
 end
 
 @testset "staging: writefile / deletefile" begin
-    fs = TarFS.create_inmemory_filesystem()
+    fs = TarFS.InMemoryFileSystem()
     @test TarFS.writefile(fs, "a.txt", "v1") == "a.txt"
     @test TarFS.readfile(fs, "a.txt") == "v1"
     TarFS.writefile(fs, "a.txt", "v2")                    # overwrite
@@ -96,7 +96,7 @@ end
 end
 
 @testset "staging: path validation" begin
-    fs = TarFS.create_inmemory_filesystem()
+    fs = TarFS.InMemoryFileSystem()
     for bad in ["", "/abs.txt", "a/../b", "..", ".", "./a", "a//b", "a/", "a\0b"]
         @test_throws ArgumentError TarFS.writefile(fs, bad, "x")
     end
@@ -149,7 +149,7 @@ end
 end
 
 @testset "write_tarball: structure and Tar.jl cross-validation" begin
-    fs = TarFS.create_inmemory_filesystem()
+    fs = TarFS.InMemoryFileSystem()
     for (k, v) in TREE
         TarFS.writefile(fs, k, v)
     end
@@ -180,14 +180,14 @@ end
 end
 
 @testset "empty filesystem" begin
-    fs = TarFS.create_inmemory_filesystem()
+    fs = TarFS.InMemoryFileSystem()
     b = take!(TarFS.write_tarball(fs, IOBuffer()))
     @test length(b) == 1024 && all(==(0x00), b)
     @test isempty(Tar.list(IOBuffer(b)))
     mktempdir() do tmp
         p = joinpath(tmp, "empty.tar.gz")
         TarFS.write_tarball_gz(fs, p)
-        @test isempty(TarFS.create_inmemory_filesystem(p).d)
+        @test isempty(TarFS.InMemoryFileSystem(p).d)
     end
 end
 
@@ -199,19 +199,19 @@ end
                 TarFS.writefile(fs, k, v)
             end
         end
-        fsr = TarFS.create_inmemory_filesystem(p1)
+        fsr = TarFS.InMemoryFileSystem(p1)
         for (k, v) in TREE
             @test TarFS.readfile(fsr, k) == v
         end
 
         # flushing a seeded fs streams source-backed entries without caching...
-        fs2 = TarFS.create_inmemory_filesystem(p1)
+        fs2 = TarFS.InMemoryFileSystem(p1)
         p2 = joinpath(tmp, "two.tar.gz")
         TarFS.write_tarball_gz(fs2, p2)
         @test all(f -> f.str === nothing, values(fs2.d))
         # ...and the fs stays fully readable afterwards (readfile re-seeks)
         @test TarFS.readfile(fs2, "a.txt") == TREE["a.txt"]
-        fs3 = TarFS.create_inmemory_filesystem(p2)
+        fs3 = TarFS.InMemoryFileSystem(p2)
         for (k, v) in TREE
             @test TarFS.readfile(fs3, k) == v
         end
@@ -232,13 +232,13 @@ end
         TarFS.open_tarball_gz(p) do fs
             TarFS.writefile(fs, "a.txt", "original")
         end
-        fs = TarFS.create_inmemory_filesystem(p)
+        fs = TarFS.InMemoryFileSystem(p)
         # Poison an entry that (a) sorts last and (b) fails header creation,
         # so the failure happens mid-stream, after "a.txt" already went out.
         fs.d["zzz" * "q"^200] = TarFS.InMemoryFile(3, -1, "abc")
         @test_throws ErrorException TarFS.write_tarball_gz(fs, p)
         @test Set(readdir(tmp)) == Set(["t.tar.gz"])      # temp file cleaned up
-        @test TarFS.readfile(TarFS.create_inmemory_filesystem(p), "a.txt") == "original"
+        @test TarFS.readfile(TarFS.InMemoryFileSystem(p), "a.txt") == "original"
     end
 end
 
@@ -264,7 +264,7 @@ end
             TarFS.deletefile(fs, "keep.txt")
             TarFS.writefile(fs, "new.txt", "n")
         end
-        fs = TarFS.create_inmemory_filesystem(q)
+        fs = TarFS.InMemoryFileSystem(q)
         @test TarFS.readfile(fs, "a.txt") == "v2"
         @test TarFS.readfile(fs, "new.txt") == "n"
         @test !haskey(fs.d, "keep.txt")
@@ -274,13 +274,13 @@ end
             TarFS.writefile(fs, "a.txt", "SHOULD NOT LAND")
             error("boom")
         end
-        @test TarFS.readfile(TarFS.create_inmemory_filesystem(q), "a.txt") == "v2"
+        @test TarFS.readfile(TarFS.InMemoryFileSystem(q), "a.txt") == "v2"
     end
 end
 
 @testset "write_tarball_gz_viatar: directory entries and long paths" begin
     mktempdir() do tmp
-        fs = TarFS.create_inmemory_filesystem()
+        fs = TarFS.InMemoryFileSystem()
         for (k, v) in TREE
             TarFS.writefile(fs, k, v)
         end
@@ -293,7 +293,7 @@ end
         # ...the Tar.create-backed writer handles it (extended headers)
         pv = joinpath(tmp, "via.tar.gz")
         TarFS.write_tarball_gz_viatar(fs, pv)
-        fsr = TarFS.create_inmemory_filesystem(pv)
+        fsr = TarFS.InMemoryFileSystem(pv)
         @test TarFS.readfile(fsr, longpath) == "leafdata"
         for (k, v) in TREE
             @test TarFS.readfile(fsr, k) == v
@@ -314,16 +314,16 @@ end
         TarFS.open_tarball_gz(p1) do fs
             TarFS.writefile(fs, "big.bin", big)
         end
-        fs = TarFS.create_inmemory_filesystem(p1)
+        fs = TarFS.InMemoryFileSystem(p1)
         @test sizeof(TarFS.readfile(fs, "big.bin")) == n
         @test TarFS.readfile(fs, "big.bin") == big
 
         # seeded flush: streamed via read_data + buf, never materialized
-        fs2 = TarFS.create_inmemory_filesystem(p1)
+        fs2 = TarFS.InMemoryFileSystem(p1)
         p2 = joinpath(tmp, "big2.tar.gz")
         TarFS.write_tarball_gz(fs2, p2)
         @test fs2.d["big.bin"].str === nothing
-        @test TarFS.readfile(TarFS.create_inmemory_filesystem(p2), "big.bin") == big
+        @test TarFS.readfile(TarFS.InMemoryFileSystem(p2), "big.bin") == big
     end
 end
 
@@ -366,7 +366,7 @@ function selftest()
                 writefile(fs, k, v)
             end
         end
-        fs = create_inmemory_filesystem(p)
+        fs = InMemoryFileSystem(p)
         for (k, v) in payload
             readfile(fs, k) == v || error("round-trip mismatch: $k")
         end
@@ -374,7 +374,7 @@ function selftest()
         open_tarball_gz(p; from = p) do fs2
             writefile(fs2, "a.txt", "hello, again")
         end
-        fs3 = create_inmemory_filesystem(p)
+        fs3 = InMemoryFileSystem(p)
         readfile(fs3, "a.txt") == "hello, again"                    || error("overwrite failed")
         readfile(fs3, "data/p175.csv") == payload["data/p175.csv"]  || error("carry-over failed")
         readfile(fs3, long) == "deep"                               || error("prefix-split entry failed")

@@ -42,3 +42,11 @@ More comprehensive testing
 ### Fixed
 
 1. Clean up Project.toml following Aqua fussiness
+
+## [0.4.0] - 2026-08-17
+
+Use struct constructors instead of dedicated function
+
+### Changed
+
+1. Change API: `create_inmemory_filesystem` => `InMemoryFileSystem` (constructor)

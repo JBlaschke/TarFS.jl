@@ -43,7 +43,7 @@ composes with anything that accepts an `IOBuffer`:
 using TarFS
 using CSV, DataFrames
 
-fs = TarFS.create_inmemory_filesystem("data.tar.gz")
+fs = InMemoryFileSystem("data.tar.gz")
 df = DataFrame(CSV.File(IOBuffer(TarFS.readfile(fs, "data/p175.csv"))))
 ```
 
@@ -51,9 +51,9 @@ Writing — stage files against an empty filesystem, flush on clean exit from
 the block:
 
 ```julia
-TarFS.open_tarball_gz("results.tar.gz") do fs
-    TarFS.writefile(fs, "summary.csv", sprint(CSV.write, df))
-    TarFS.writefile(fs, "meta/run.txt", "seed = 42\n")
+open_tarball_gz("results.tar.gz") do fs
+    writefile(fs, "summary.csv", sprint(CSV.write, df))
+    writefile(fs, "meta/run.txt", "seed = 42\n")
 end
 ```
 
@@ -73,17 +73,17 @@ end
 
 Nothing is exported; qualify with `TarFS.`.
 
-| Function | Description |
-| --- | --- |
-| `create_inmemory_filesystem(path)` | Load and decompress a `.tar.gz` into memory and index its files. |
-| `create_inmemory_filesystem()` | Create an empty, writable filesystem. |
-| `readfile(fs, path)` | Return an entry's contents as a `String` (raw bytes; materialized lazily, cached). |
-| `writefile(fs, path, content)` | Stage or overwrite an entry; `content` is an `AbstractString` or `AbstractVector{UInt8}` (byte vectors are copied). |
-| `deletefile(fs, path)` | Remove an entry. |
-| `open_tarball_gz(f, path; from = nothing)` | Run `f(fs)` and flush to `path` on normal return; `from` seeds from an existing archive. |
-| `write_tarball_gz(fs, path)` | Flush to a `.tar.gz` at `path`, atomically. |
-| `write_tarball(fs, io)` | Write an uncompressed POSIX tarball to any `IO`. |
-| `write_tarball_gz_viatar(fs, path)` | Flush via `Tar.create` through a temporary directory (see below). |
+| Function                                   | Description                                                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `InMemoryFileSystem(path)`                 | Load and decompress a `.tar.gz` into memory and index its files.                                                    |
+| `InMemoryFileSystem()`                     | Create an empty, writable filesystem.                                                                               |
+| `readfile(fs, path)`                       | Return an entry's contents as a `String` (raw bytes; materialized lazily, cached).                                  |
+| `writefile(fs, path, content)`             | Stage or overwrite an entry; `content` is an `AbstractString` or `AbstractVector{UInt8}` (byte vectors are copied). |
+| `deletefile(fs, path)`                     | Remove an entry.                                                                                                    |
+| `open_tarball_gz(f, path; from = nothing)` | Run `f(fs)` and flush to `path` on normal return; `from` seeds from an existing archive.                            |
+| `write_tarball_gz(fs, path)`               | Flush to a `.tar.gz` at `path`, atomically.                                                                         |
+| `write_tarball(fs, io)`                    | Write an uncompressed POSIX tarball to any `IO`.                                                                    |
+| `write_tarball_gz_viatar(fs, path)`        | Flush via `Tar.create` through a temporary directory (see below).                                                   |
 
 Member paths must be relative, `/`-separated, and free of `..`, `.`, empty
 segments, and NUL bytes; `writefile` enforces this. Julia `String`s hold
