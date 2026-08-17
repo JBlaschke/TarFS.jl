@@ -39,3 +39,23 @@ jobs:
       - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: # contents: write lets deploydocs push to gh-pages; actions: write for cache cleanup
+      actions: write
+      contents: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1' # docs need >= 1.11 so docs/Project.toml [sources] resolves TarFS
+      - uses: julia-actions/cache@v3
+      - name: Instantiate docs environment
+        run: julia --project=docs -e 'using Pkg; Pkg.instantiate()'
+      - name: Build and deploy docs
+        run: julia --project=docs docs/make.jl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,6 +1,7 @@
 # TarFS
 
 [![Build Status](https://github.com/JBlaschke/TarFS.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/JBlaschke/TarFS.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://jblaschke.github.io/TarFS.jl/dev/)
 
 An in-memory filesystem backed by a `.tar.gz` archive: load it once, read files
 by path, stage new or modified files, and flush everything back to a

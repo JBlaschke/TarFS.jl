@@ -8,4 +8,8 @@ makedocs(
     # remotes = nothing,  # uncomment if Documenter complains about the Git remote
 )
 
-# deploydocs(repo = "github.com/JBlaschke/TarFS.jl.git")  # for GitHub Pages, from CI
+deploydocs(
+    repo = "github.com/JBlaschke/TarFS.jl.git",
+    devbranch = "main",        # match your actual default branch
+    push_preview = false,      # true if you want per-PR doc previews
+)
