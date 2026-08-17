@@ -19,10 +19,10 @@ end
 """
     InMemoryFileSystem
 
-An in-memory filesystem backed by a `.tar.gz` archive. Construct it empty
-with `InMemoryFileSystem()` or from an archive with `InMemoryFileSystem(path)`;
-read entries with [`readfile`](@ref), stage changes with [`writefile`](@ref),
-and flush with [`write_tarball_gz`](@ref) or [`open_tarball_gz`](@ref).
+An in-memory filesystem backed by a `.tar.gz` archive. Construct it empty with
+`InMemoryFileSystem()` or from an archive with `InMemoryFileSystem(path)`; read
+entries with [`readfile`](@ref), stage changes with [`writefile`](@ref), and
+flush with [`write_tarball_gz`](@ref) or [`open_tarball_gz`](@ref).
 """
 mutable struct InMemoryFileSystem
     d::Dict{String, InMemoryFile}
@@ -37,8 +37,8 @@ export InMemoryFileSystem
     readfile(fs, path) -> String
 
 Contents of `path` as raw bytes in a `String`, decoded from the in-memory
-archive on first access and cached thereafter. Throws `KeyError` for
-unknown paths.
+archive on first access and cached thereafter. Throws `KeyError` for unknown
+paths.
 """
 function readfile(ref::InMemoryFileSystem, path::AbstractString)
     file = ref.d[path]
@@ -113,10 +113,12 @@ function _check_path(path::AbstractString)
 end
 
 """
-Stage (or overwrite) a file. `content` may be a string or a byte vector;
-byte vectors are copied, so the caller's buffer is left intact.
-Overwriting a source-backed path replaces the entry, so
-read -> transform -> writefile is read-modify-write.
+    writefile(fs::InMemoryFileSystem, path::AbstractString, content::Union{AbstractString, AbstractVector{UInt8}})
+
+Stage (or overwrite) a file. `content` may be a string or a byte vector; byte
+vectors are copied, so the caller's buffer is left intact. Overwriting a
+source-backed path replaces the entry, so read -> transform -> writefile is
+read-modify-write.
 """
 function writefile(fs::InMemoryFileSystem, path::AbstractString,
                    content::Union{AbstractString, AbstractVector{UInt8}})
@@ -198,9 +200,11 @@ function _write_filedata(fs::InMemoryFileSystem, io::IO, file::InMemoryFile)
 end
 
 """
+    write_tarball(fs::InMemoryFileSystem, io::IO)
+
 Write the whole filesystem as a POSIX tarball to `io` (uncompressed).
-Source-backed files are streamed, not cached; `fs.tarball_io`'s position
-is clobbered, which is fine — readfile always seeks first.
+Source-backed files are streamed, not cached; `fs.tarball_io`'s position is
+clobbered, which is fine — readfile always seeks first.
 """
 function write_tarball(fs::InMemoryFileSystem, io::IO)
     for path in sort!(collect(keys(fs.d)))  # sorted => reproducible bytes
@@ -238,22 +242,25 @@ function _atomic_gz(f, path::AbstractString)
 end
 
 """
-Flush the filesystem to a gzip-compressed tarball at `path`. Atomic: a
-failure mid-write leaves any existing archive at `path` untouched, so
-seeding `from = path` (read-modify-write) cannot destroy the source.
+    write_tarball_gz(fs::InMemoryFileSystem, path::AbstractString)
+
+Flush the filesystem to a gzip-compressed tarball at `path`. Atomic: a failure
+mid-write leaves any existing archive at `path` untouched, so seeding `from =
+path` (read-modify-write) cannot destroy the source.
 """
-write_tarball_gz(fs::InMemoryFileSystem, path::AbstractString) =
-    _atomic_gz(gz -> write_tarball(fs, gz), path)
+write_tarball_gz(fs::InMemoryFileSystem, path::AbstractString) = _atomic_gz(
+    gz -> write_tarball(fs, gz), path
+)
 
 # ---- ergonomic "close => write" entry point --------------------------------
 
 """
     open_tarball_gz(f, path; from = nothing)
 
-Run `f(fs)` on a writable filesystem, then flush it to `path`. Pass
-`from = "in.tar.gz"` to seed from an existing archive; `from == path` is
-fine — the source is fully loaded up front and the write is atomic.
-The flush happens only if `f` returns normally.
+Run `f(fs)` on a writable filesystem, then flush it to `path`. Pass `from =
+"in.tar.gz"` to seed from an existing archive; `from == path` is fine — the
+source is fully loaded up front and the write is atomic. The flush happens only
+if `f` returns normally.
 """
 function open_tarball_gz(f, path::AbstractString;
                          from::Union{Nothing, AbstractString} = nothing)
@@ -291,6 +298,5 @@ function write_tarball_gz_viatar(fs::InMemoryFileSystem, path::AbstractString)
     end
     return path
 end
-
 
 end
