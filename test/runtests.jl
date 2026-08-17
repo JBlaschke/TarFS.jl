@@ -346,9 +346,9 @@ end
 # ---- round-trip smoke test ---------------------------------------------------
 
 """
-Write -> flush -> re-read through the existing read path (i.e. our headers
-must parse via Tar.read_tarball); also checks the prefix-split path and a
-seeded overwrite onto the same file. Returns `true` or throws.
+Write -> flush -> re-read through the existing read path (i.e. our headers must
+parse via Tar.read_tarball); also checks the prefix-split path and a seeded
+overwrite onto the same file. Returns `true` or throws.
 """
 function selftest()
     long = "p" * "x"^60 * "/" * "y"^60 * ".txt"   # 126 B: exercises prefix split
@@ -381,6 +381,7 @@ function selftest()
     end
     return true
 end
+
 @testset "built-in smoke test still passes" begin
     @test selftest()
 end

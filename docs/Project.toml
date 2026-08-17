@@ -1,0 +1,9 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+TarFS = "2705667e-b265-4762-bdad-6f28b3efad63"
+
+[sources]
+TarFS = { path = ".." }
+
+[compat]
+Documenter = "1"
